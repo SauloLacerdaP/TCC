@@ -1,0 +1,15 @@
+metrica,valor
+numero_perfis,199.0
+numero_reynolds,3.0
+numero_mach,1.0
+numero_alphas_esperados,13.0
+casos_teoricos,7761.0
+casos_existentes,7290.0
+casos_ausentes,471.0
+taxa_cobertura_pct,93.931194433707
+taxa_ausencia_pct,6.068805566293004
+combinacoes_perfil_re_completas,414.0
+combinacoes_perfil_re_incompletas,183.0
+duplicatas,0.0
+cd_menor_igual_zero,0.0
+valores_infinitos,0.0

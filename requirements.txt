@@ -1,7 +1,9 @@
 # Dependências externas do projeto
-matplotlib==3.9.2
+matplotlib==3.11.1
 numpy==1.26.4
 pandas==2.2.3
+scikit-learn==1.5.2
+joblib==1.4.2
 requests==2.32.3
 scipy==1.13.1
 subprocess32==3.5.4
