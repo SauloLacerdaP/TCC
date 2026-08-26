@@ -1,611 +1,943 @@
-from pathlib import Path
 import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+from pathlib import Path
 
 
 # ============================================================
 # CONFIGURAÇÕES
 # ============================================================
 
-ARQUIVO_XFOIL = Path(
-    r"C:\Ciencia de Dados\TCC\Output_dados\banco_dados_xfoil.csv"
-)
-
-# Pasta contendo todos os .dat
-# Usada somente para encontrar perfis com ZERO resultados
-PASTA_PERFIS = Path(
-    r"C:\Ciencia de Dados\TCC\Airfoils_Selig"
+ARQUIVO = Path(
+    r"C:\Repositorios\TCC\Output_dados\database_ml.csv"
 )
 
 PASTA_SAIDA = Path(
-    r"C:\Ciencia de Dados\TCC\Output_dados"
+    r"C:\Repositorios\TCC\Output_dados\diagnostico_convergencia"
+)
+
+PASTA_SAIDA.mkdir(
+    parents=True,
+    exist_ok=True
+)
+
+# Intervalo esperado após o ETL
+ALPHAS_ESPERADOS = list(range(0, 13))
+
+
+# ============================================================
+# 1. CARREGAMENTO
+# ============================================================
+
+print("=" * 70)
+print("ANÁLISE DE QUALIDADE E CONVERGÊNCIA DO BANCO")
+print("=" * 70)
+
+df = pd.read_csv(ARQUIVO)
+
+print(f"\nArquivo: {ARQUIVO}")
+print(f"Linhas: {len(df)}")
+print(f"Colunas: {len(df.columns)}")
+
+
+# ============================================================
+# 2. INFORMAÇÕES BÁSICAS
+# ============================================================
+
+perfis = sorted(df["perfil"].unique())
+reynolds = sorted(df["Re"].unique())
+machs = sorted(df["Mach"].unique())
+alphas_encontrados = sorted(df["alpha"].unique())
+
+n_perfis = len(perfis)
+n_re = len(reynolds)
+n_mach = len(machs)
+n_alpha = len(ALPHAS_ESPERADOS)
+
+print("\n" + "=" * 70)
+print("CONFIGURAÇÃO DO BANCO")
+print("=" * 70)
+
+print(f"Perfis encontrados: {n_perfis}")
+print(f"Reynolds encontrados: {reynolds}")
+print(f"Mach encontrados: {machs}")
+print(f"Alphas encontrados: {alphas_encontrados}")
+
+
+# ============================================================
+# 3. VERIFICAR NaN
+# ============================================================
+
+print("\n" + "=" * 70)
+print("1. VALORES AUSENTES (NaN)")
+print("=" * 70)
+
+nan_por_coluna = df.isna().sum()
+
+nan_por_coluna = nan_por_coluna[
+    nan_por_coluna > 0
+].sort_values(ascending=False)
+
+if nan_por_coluna.empty:
+    print("OK - Nenhum valor NaN encontrado.")
+else:
+    print("ATENÇÃO - Foram encontrados valores NaN:")
+    print(nan_por_coluna)
+
+nan_por_coluna.to_csv(
+    PASTA_SAIDA / "valores_nan.csv",
+    header=["quantidade_nan"]
 )
 
 
 # ============================================================
-# DOMÍNIO QUE SERÁ CONSIDERADO
+# 4. VERIFICAR DUPLICATAS
 # ============================================================
 
-REYNOLDS_ESPERADOS = [
-    200000,
-    250000,
-    300000
+print("\n" + "=" * 70)
+print("2. DUPLICATAS")
+print("=" * 70)
+
+chave = [
+    "perfil",
+    "Re",
+    "Mach",
+    "alpha"
 ]
 
-ALPHA_INICIAL = 0
-ALPHA_FINAL = 12
-PASSO_ALPHA = 1
-
-
-# ============================================================
-# CRITÉRIOS DE CLASSIFICAÇÃO
-# ============================================================
-
-LIMITE_OK = 0.80
-LIMITE_CRITICO = 0.50
-
-
-# ============================================================
-# FUNÇÕES
-# ============================================================
-
-def gerar_alphas_esperados():
-
-    return list(
-        range(
-            ALPHA_INICIAL,
-            ALPHA_FINAL + 1,
-            PASSO_ALPHA
-        )
+duplicadas = df[
+    df.duplicated(
+        subset=chave,
+        keep=False
     )
+].copy()
 
-
-def classificar(percentual):
-
-    if percentual >= LIMITE_OK:
-        return "OK"
-
-    elif percentual >= LIMITE_CRITICO:
-        return "REVISAR"
-
-    else:
-        return "CRITICO"
-
-
-# ============================================================
-# MAIN
-# ============================================================
-
-def main():
-
-    print("\n")
-    print("=" * 70)
-    print("RELATÓRIO DE CONVERGÊNCIA XFOIL")
-    print("DOMÍNIO: ALPHA 0° A 12°")
-    print("=" * 70)
-
-    if not ARQUIVO_XFOIL.exists():
-
-        raise FileNotFoundError(
-            f"CSV não encontrado:\n{ARQUIVO_XFOIL}"
-        )
-
-    PASTA_SAIDA.mkdir(
-        parents=True,
-        exist_ok=True
-    )
-
-    # ========================================================
-    # CARREGAR CSV
-    # ========================================================
-
-    df = pd.read_csv(
-        ARQUIVO_XFOIL
-    )
-
-    df["perfil"] = (
-        df["perfil"]
-        .astype(str)
-        .str.strip()
-    )
-
+if duplicadas.empty:
+    print("OK - Nenhuma combinação duplicada.")
+else:
     print(
-        f"\nLinhas originais no CSV: "
-        f"{len(df)}"
+        f"ATENÇÃO - {len(duplicadas)} linhas "
+        f"participam de duplicatas."
     )
 
-    # ========================================================
-    # FILTRAR ALPHA 0–12
-    # ========================================================
-
-    df = df[
-        (df["alpha"] >= ALPHA_INICIAL)
-        &
-        (df["alpha"] <= ALPHA_FINAL)
-    ].copy()
-
-    print(
-        f"Linhas consideradas entre "
-        f"{ALPHA_INICIAL}° e {ALPHA_FINAL}°: "
-        f"{len(df)}"
+    duplicadas.to_csv(
+        PASTA_SAIDA / "linhas_duplicadas.csv",
+        index=False
     )
 
-    # ========================================================
-    # CONFIGURAÇÃO ESPERADA
-    # ========================================================
 
-    alphas_esperados = gerar_alphas_esperados()
+# ============================================================
+# 5. CRIAR GRADE TEÓRICA
+# ============================================================
 
-    pontos_por_reynolds = len(
-        alphas_esperados
+print("\n" + "=" * 70)
+print("3. COBERTURA / PROVÁVEL CONVERGÊNCIA")
+print("=" * 70)
+
+grade_teorica = pd.MultiIndex.from_product(
+    [
+        perfis,
+        reynolds,
+        machs,
+        ALPHAS_ESPERADOS
+    ],
+    names=[
+        "perfil",
+        "Re",
+        "Mach",
+        "alpha"
+    ]
+).to_frame(index=False)
+
+
+# Marca quais condições realmente existem
+existentes = (
+    df[chave]
+    .drop_duplicates()
+    .copy()
+)
+
+existentes["resultado_xfoil"] = True
+
+
+grade = grade_teorica.merge(
+    existentes,
+    on=chave,
+    how="left"
+)
+
+grade["resultado_xfoil"] = (
+    grade["resultado_xfoil"]
+    .fillna(False)
+    .astype(bool)
+)
+
+
+# ============================================================
+# 6. ESTATÍSTICAS GERAIS DE COBERTURA
+# ============================================================
+
+total_teorico = len(grade)
+total_existente = grade["resultado_xfoil"].sum()
+total_ausente = total_teorico - total_existente
+
+taxa_cobertura = (
+    total_existente
+    / total_teorico
+    * 100
+)
+
+taxa_ausencia = (
+    total_ausente
+    / total_teorico
+    * 100
+)
+
+print(f"\nCombinações teóricas: {total_teorico}")
+print(f"Resultados existentes: {total_existente}")
+print(f"Resultados ausentes: {total_ausente}")
+
+print(
+    f"\nTaxa de cobertura: "
+    f"{taxa_cobertura:.2f}%"
+)
+
+print(
+    f"Taxa de ausência/provável não convergência: "
+    f"{taxa_ausencia:.2f}%"
+)
+
+
+# ============================================================
+# 7. LISTA COMPLETA DE CASOS AUSENTES
+# ============================================================
+
+ausentes = grade[
+    ~grade["resultado_xfoil"]
+].copy()
+
+ausentes.to_csv(
+    PASTA_SAIDA / "casos_ausentes.csv",
+    index=False
+)
+
+
+# ============================================================
+# 8. CONVERGÊNCIA POR ALPHA
+# ============================================================
+
+por_alpha = (
+    grade
+    .groupby("alpha")
+    .agg(
+        esperado=("resultado_xfoil", "size"),
+        existente=("resultado_xfoil", "sum")
     )
-
-    pontos_por_perfil = (
-        pontos_por_reynolds
-        *
-        len(REYNOLDS_ESPERADOS)
-    )
-
-    print(
-        f"\nPontos esperados por Reynolds: "
-        f"{pontos_por_reynolds}"
-    )
-
-    print(
-        f"Pontos esperados por perfil: "
-        f"{pontos_por_perfil}"
-    )
-
-    # ========================================================
-    # PERFIS PRESENTES
-    # ========================================================
-
-    perfis_csv = sorted(
-        df["perfil"].unique()
-    )
-
-    # ========================================================
-    # RELATÓRIO DETALHADO
-    # PERFIL × REYNOLDS
-    # ========================================================
-
-    linhas_detalhadas = []
-
-    for perfil in perfis_csv:
-
-        df_perfil = df[
-            df["perfil"] == perfil
-        ]
-
-        for reynolds in REYNOLDS_ESPERADOS:
-
-            subset = df_perfil[
-                df_perfil["Re"] == reynolds
-            ]
-
-            alphas_encontrados = sorted(
-                set(
-                    int(round(alpha))
-                    for alpha in subset["alpha"]
-                )
-            )
-
-            alphas_faltantes = [
-
-                alpha
-
-                for alpha in alphas_esperados
-
-                if alpha
-                not in alphas_encontrados
-
-            ]
-
-            convergidos = len(
-                alphas_encontrados
-            )
-
-            percentual = (
-                convergidos
-                /
-                pontos_por_reynolds
-            )
-
-            linhas_detalhadas.append({
-
-                "perfil":
-                    perfil,
-
-                "Re":
-                    reynolds,
-
-                "pontos_esperados":
-                    pontos_por_reynolds,
-
-                "pontos_convergidos":
-                    convergidos,
-
-                "pontos_faltantes":
-                    pontos_por_reynolds
-                    -
-                    convergidos,
-
-                "percentual_convergencia":
-                    percentual * 100,
-
-                "classificacao":
-                    classificar(
-                        percentual
-                    ),
-
-                "alphas_convergidos":
-                    ", ".join(
-                        str(a)
-                        for a
-                        in alphas_encontrados
-                    ),
-
-                "alphas_faltantes":
-                    ", ".join(
-                        str(a)
-                        for a
-                        in alphas_faltantes
-                    )
-
-            })
-
-    df_detalhado = pd.DataFrame(
-        linhas_detalhadas
-    )
-
-    # ========================================================
-    # RELATÓRIO POR PERFIL
-    # ========================================================
-
-    linhas_resumo = []
-
-    for perfil in perfis_csv:
-
-        df_perfil = df[
-            df["perfil"] == perfil
-        ]
-
-        pontos_convergidos = len(
-
-            df_perfil.drop_duplicates(
-                subset=[
-                    "Re",
-                    "alpha"
-                ]
-            )
-
-        )
-
-        percentual = (
-            pontos_convergidos
-            /
-            pontos_por_perfil
-        )
-
-        linha = {
-
-            "perfil":
-                perfil,
-
-            "pontos_esperados":
-                pontos_por_perfil,
-
-            "pontos_convergidos":
-                pontos_convergidos,
-
-            "pontos_faltantes":
-                pontos_por_perfil
-                -
-                pontos_convergidos,
-
-            "percentual_convergencia":
-                percentual * 100,
-
-            "classificacao":
-                classificar(
-                    percentual
-                )
-
-        }
-
-        # ----------------------------------------------------
-        # INFORMAÇÕES POR REYNOLDS
-        # ----------------------------------------------------
-
-        for reynolds in REYNOLDS_ESPERADOS:
-
-            subset = df_perfil[
-                df_perfil["Re"]
-                ==
-                reynolds
-            ]
-
-            qtd = len(
-
-                subset.drop_duplicates(
-                    subset=["alpha"]
-                )
-
-            )
-
-            linha[
-                f"pontos_Re_{reynolds}"
-            ] = qtd
-
-            linha[
-                f"percentual_Re_{reynolds}"
-            ] = (
-                qtd
-                /
-                pontos_por_reynolds
-                *
-                100
-            )
-
-        # ----------------------------------------------------
-        # CONDIÇÕES FALTANTES
-        # ----------------------------------------------------
-
-        faltantes_total = []
-
-        for reynolds in REYNOLDS_ESPERADOS:
-
-            subset = df_perfil[
-                df_perfil["Re"]
-                ==
-                reynolds
-            ]
-
-            encontrados = set(
-
-                int(round(a))
-
-                for a in subset["alpha"]
-
-            )
-
-            faltantes = [
-
-                a
-
-                for a
-                in alphas_esperados
-
-                if a not in encontrados
-
-            ]
-
-            if faltantes:
-
-                faltantes_total.append(
-
-                    f"Re={reynolds}: "
-                    +
-                    ",".join(
-                        str(a)
-                        for a in faltantes
-                    )
-
-                )
-
-        linha[
-            "condicoes_faltantes"
-        ] = " | ".join(
-            faltantes_total
-        )
-
-        linhas_resumo.append(
-            linha
-        )
-
-    df_resumo = pd.DataFrame(
-        linhas_resumo
-    )
-
-    # ========================================================
-    # PERFIS COM ZERO RESULTADOS
-    # ========================================================
-
-    perfis_zero = []
-
-    if PASTA_PERFIS.exists():
-
-        perfis_esperados = sorted(
-
-            arquivo.stem
-
-            for arquivo
-            in PASTA_PERFIS.glob(
-                "*.dat"
-            )
-
-        )
-
-        conjunto_csv = set(
-            perfis_csv
-        )
-
-        perfis_zero = [
-
-            perfil
-
-            for perfil
-            in perfis_esperados
-
-            if perfil
-            not in conjunto_csv
-
-        ]
-
-    # ========================================================
-    # SALVAR RESULTADOS
-    # ========================================================
-
-    arquivo_resumo = (
-        PASTA_SAIDA
-        /
-        "relatorio_convergencia_0a12_perfis.csv"
-    )
-
-    arquivo_detalhado = (
-        PASTA_SAIDA
-        /
-        "relatorio_convergencia_0a12_detalhado.csv"
-    )
-
-    df_resumo.to_csv(
-        arquivo_resumo,
+    .reset_index()
+)
+
+por_alpha["ausente"] = (
+    por_alpha["esperado"]
+    - por_alpha["existente"]
+)
+
+por_alpha["cobertura_pct"] = (
+    por_alpha["existente"]
+    / por_alpha["esperado"]
+    * 100
+)
+
+por_alpha["ausencia_pct"] = (
+    por_alpha["ausente"]
+    / por_alpha["esperado"]
+    * 100
+)
+
+print("\n" + "=" * 70)
+print("COBERTURA POR ALPHA")
+print("=" * 70)
+
+print(
+    por_alpha.to_string(
         index=False,
-        float_format="%.2f"
+        float_format=lambda x: f"{x:.2f}"
     )
+)
 
-    df_detalhado.to_csv(
-        arquivo_detalhado,
+por_alpha.to_csv(
+    PASTA_SAIDA / "convergencia_por_alpha.csv",
+    index=False
+)
+
+
+# ============================================================
+# 9. CONVERGÊNCIA POR REYNOLDS
+# ============================================================
+
+por_re = (
+    grade
+    .groupby("Re")
+    .agg(
+        esperado=("resultado_xfoil", "size"),
+        existente=("resultado_xfoil", "sum")
+    )
+    .reset_index()
+)
+
+por_re["ausente"] = (
+    por_re["esperado"]
+    - por_re["existente"]
+)
+
+por_re["cobertura_pct"] = (
+    por_re["existente"]
+    / por_re["esperado"]
+    * 100
+)
+
+por_re["ausencia_pct"] = (
+    por_re["ausente"]
+    / por_re["esperado"]
+    * 100
+)
+
+print("\n" + "=" * 70)
+print("COBERTURA POR REYNOLDS")
+print("=" * 70)
+
+print(
+    por_re.to_string(
         index=False,
-        float_format="%.2f"
+        float_format=lambda x: f"{x:.2f}"
+    )
+)
+
+por_re.to_csv(
+    PASTA_SAIDA / "convergencia_por_reynolds.csv",
+    index=False
+)
+
+
+# ============================================================
+# 10. CONVERGÊNCIA POR PERFIL
+# ============================================================
+
+por_perfil = (
+    grade
+    .groupby("perfil")
+    .agg(
+        esperado=("resultado_xfoil", "size"),
+        existente=("resultado_xfoil", "sum")
+    )
+    .reset_index()
+)
+
+por_perfil["ausente"] = (
+    por_perfil["esperado"]
+    - por_perfil["existente"]
+)
+
+por_perfil["cobertura_pct"] = (
+    por_perfil["existente"]
+    / por_perfil["esperado"]
+    * 100
+)
+
+por_perfil["ausencia_pct"] = (
+    por_perfil["ausente"]
+    / por_perfil["esperado"]
+    * 100
+)
+
+por_perfil = por_perfil.sort_values(
+    by=[
+        "cobertura_pct",
+        "perfil"
+    ]
+)
+
+print("\n" + "=" * 70)
+print("10 PERFIS COM MENOR COBERTURA")
+print("=" * 70)
+
+print(
+    por_perfil.head(10).to_string(
+        index=False,
+        float_format=lambda x: f"{x:.2f}"
+    )
+)
+
+por_perfil.to_csv(
+    PASTA_SAIDA / "convergencia_por_perfil.csv",
+    index=False
+)
+
+
+# ============================================================
+# 11. PERFIL x REYNOLDS
+# ============================================================
+
+perfil_re = (
+    grade
+    .groupby(
+        [
+            "perfil",
+            "Re"
+        ]
+    )
+    .agg(
+        esperado=("resultado_xfoil", "size"),
+        existente=("resultado_xfoil", "sum")
+    )
+    .reset_index()
+)
+
+perfil_re["ausente"] = (
+    perfil_re["esperado"]
+    - perfil_re["existente"]
+)
+
+perfil_re["cobertura_pct"] = (
+    perfil_re["existente"]
+    / perfil_re["esperado"]
+    * 100
+)
+
+perfil_re.to_csv(
+    PASTA_SAIDA / "convergencia_perfil_reynolds.csv",
+    index=False
+)
+
+
+# ============================================================
+# 12. COMBINAÇÕES PERFIL x RE COMPLETAS
+# ============================================================
+
+completas = perfil_re[
+    perfil_re["ausente"] == 0
+]
+
+incompletas = perfil_re[
+    perfil_re["ausente"] > 0
+]
+
+print("\n" + "=" * 70)
+print("PERFIL x REYNOLDS")
+print("=" * 70)
+
+print(
+    f"Combinações completas: "
+    f"{len(completas)}"
+)
+
+print(
+    f"Combinações incompletas: "
+    f"{len(incompletas)}"
+)
+
+print(
+    f"Total: "
+    f"{len(perfil_re)}"
+)
+
+
+# ============================================================
+# 13. QUANTIDADE DE ALPHAS POR PERFIL x RE
+# ============================================================
+
+distribuicao_n_alpha = (
+    perfil_re["existente"]
+    .value_counts()
+    .sort_index()
+    .rename_axis("numero_de_alphas")
+    .reset_index(name="quantidade_perfil_re")
+)
+
+print("\n" + "=" * 70)
+print("DISTRIBUIÇÃO DO NÚMERO DE ALPHAS POR PERFIL x RE")
+print("=" * 70)
+
+print(
+    distribuicao_n_alpha.to_string(
+        index=False
+    )
+)
+
+distribuicao_n_alpha.to_csv(
+    PASTA_SAIDA / "distribuicao_numero_alphas.csv",
+    index=False
+)
+
+
+# ============================================================
+# 14. QUALIDADE DOS VALORES AERODINÂMICOS
+# ============================================================
+
+print("\n" + "=" * 70)
+print("4. QUALIDADE DAS VARIÁVEIS AERODINÂMICAS")
+print("=" * 70)
+
+
+# ------------------------------------------------------------
+# CD <= 0
+# ------------------------------------------------------------
+
+cd_invalido = df[
+    df["CD"] <= 0
+].copy()
+
+print(
+    f"\nCD <= 0: "
+    f"{len(cd_invalido)} linhas"
+)
+
+if not cd_invalido.empty:
+    cd_invalido.to_csv(
+        PASTA_SAIDA / "cd_invalido.csv",
+        index=False
     )
 
-    # ========================================================
-    # ESTATÍSTICAS
-    # ========================================================
 
-    qtd_ok = int(
-        (
-            df_resumo["classificacao"]
-            ==
-            "OK"
-        ).sum()
-    )
+# ------------------------------------------------------------
+# Infinitos
+# ------------------------------------------------------------
 
-    qtd_revisar = int(
-        (
-            df_resumo["classificacao"]
-            ==
-            "REVISAR"
-        ).sum()
-    )
+colunas_numericas = df.select_dtypes(
+    include=np.number
+).columns
 
-    qtd_critico = int(
-        (
-            df_resumo["classificacao"]
-            ==
-            "CRITICO"
-        ).sum()
-    )
+inf_mask = np.isinf(
+    df[colunas_numericas]
+)
 
-    total_perfis_esperados = (
-        len(perfis_csv)
-        +
-        len(perfis_zero)
-    )
+quantidade_inf = int(
+    inf_mask.sum().sum()
+)
 
-    pontos_teoricos = (
-        total_perfis_esperados
-        *
-        pontos_por_perfil
-    )
+print(
+    f"Valores infinitos: "
+    f"{quantidade_inf}"
+)
 
-    pontos_reais = len(
 
-        df.drop_duplicates(
-            subset=[
-                "perfil",
-                "Re",
-                "alpha"
-            ]
-        )
+# ============================================================
+# 15. VERIFICAR Top_Xtr e Bot_Xtr
+# ============================================================
 
-    )
+for coluna in [
+    "Top_Xtr",
+    "Bot_Xtr"
+]:
 
-    taxa_global = (
-        pontos_reais
-        /
-        pontos_teoricos
-        *
-        100
-    )
+    if coluna in df.columns:
 
-    # ========================================================
-    # RESUMO TERMINAL
-    # ========================================================
-
-    print("\n")
-    print("=" * 70)
-    print("RESULTADO — ALPHA 0° A 12°")
-    print("=" * 70)
-
-    print(
-        f"\nPerfis com resultados: "
-        f"{len(perfis_csv)}"
-    )
-
-    print(
-        f"Perfis com zero resultados: "
-        f"{len(perfis_zero)}"
-    )
-
-    if perfis_zero:
+        fora_faixa = df[
+            (df[coluna] < 0)
+            | (df[coluna] > 1)
+        ]
 
         print(
-            "\nPerfis com 0 pontos:"
+            f"{coluna} fora de [0, 1]: "
+            f"{len(fora_faixa)}"
         )
 
-        for perfil in perfis_zero:
-
-            print(
-                f"   - {perfil}"
+        if not fora_faixa.empty:
+            fora_faixa.to_csv(
+                PASTA_SAIDA
+                / f"{coluna}_fora_faixa.csv",
+                index=False
             )
 
-    print(
-        "\nClassificação:"
+
+# ============================================================
+# 16. ESTATÍSTICAS AERODINÂMICAS
+# ============================================================
+
+variaveis_aero = [
+    "CL",
+    "CD",
+    "CDp",
+    "CM"
+]
+
+variaveis_aero = [
+    c
+    for c in variaveis_aero
+    if c in df.columns
+]
+
+estatisticas_aero = (
+    df[variaveis_aero]
+    .describe()
+    .T
+)
+
+print("\n" + "=" * 70)
+print("ESTATÍSTICAS DAS VARIÁVEIS AERODINÂMICAS")
+print("=" * 70)
+
+print(estatisticas_aero)
+
+estatisticas_aero.to_csv(
+    PASTA_SAIDA
+    / "estatisticas_aerodinamicas.csv"
+)
+
+
+# ============================================================
+# 17. CL/CD
+# ============================================================
+
+df_analise = df.copy()
+
+df_analise["CL_CD"] = (
+    df_analise["CL"]
+    / df_analise["CD"]
+)
+
+cl_cd_inf = np.isinf(
+    df_analise["CL_CD"]
+).sum()
+
+print(
+    f"\nCL/CD infinitos: "
+    f"{cl_cd_inf}"
+)
+
+estatisticas_clcd = (
+    df_analise["CL_CD"]
+    .replace(
+        [np.inf, -np.inf],
+        np.nan
+    )
+    .describe()
+)
+
+print("\nEstatísticas CL/CD:")
+print(estatisticas_clcd)
+
+estatisticas_clcd.to_csv(
+    PASTA_SAIDA
+    / "estatisticas_cl_cd.csv"
+)
+
+
+# ============================================================
+# 18. QUALIDADE DO AJUSTE CST
+# ============================================================
+
+colunas_erro_cst = [
+    "RMSE_upper",
+    "RMSE_lower",
+    "MaxError_upper",
+    "MaxError_lower"
+]
+
+colunas_erro_cst = [
+    c
+    for c in colunas_erro_cst
+    if c in df.columns
+]
+
+if colunas_erro_cst:
+
+    qualidade_cst = (
+        df[
+            ["perfil"]
+            + colunas_erro_cst
+        ]
+        .drop_duplicates(
+            subset=["perfil"]
+        )
     )
 
-    print(
-        f"   OK      : {qtd_ok}"
+    estatisticas_cst = (
+        qualidade_cst[
+            colunas_erro_cst
+        ]
+        .describe()
+        .T
     )
 
-    print(
-        f"   REVISAR : {qtd_revisar}"
+    print("\n" + "=" * 70)
+    print("QUALIDADE DA PARAMETRIZAÇÃO CST")
+    print("=" * 70)
+
+    print(estatisticas_cst)
+
+    estatisticas_cst.to_csv(
+        PASTA_SAIDA
+        / "estatisticas_erros_cst.csv"
     )
 
-    print(
-        f"   CRITICO : {qtd_critico}"
-    )
-
-    print(
-        f"\nPontos teóricos: "
-        f"{pontos_teoricos}"
-    )
-
-    print(
-        f"Pontos convergidos: "
-        f"{pontos_reais}"
-    )
-
-    print(
-        f"\nTaxa global de convergência: "
-        f"{taxa_global:.2f}%"
-    )
-
-    print(
-        f"\nRelatório por perfil:\n"
-        f"{arquivo_resumo}"
-    )
-
-    print(
-        f"\nRelatório detalhado:\n"
-        f"{arquivo_detalhado}"
+    qualidade_cst.to_csv(
+        PASTA_SAIDA
+        / "erros_cst_por_perfil.csv",
+        index=False
     )
 
 
 # ============================================================
-# EXECUÇÃO
+# 19. GRÁFICO - COBERTURA POR ALPHA
 # ============================================================
 
-if __name__ == "__main__":
+plt.figure(
+    figsize=(10, 6)
+)
 
-    main()
+plt.bar(
+    por_alpha["alpha"],
+    por_alpha["cobertura_pct"]
+)
+
+plt.axhline(
+    100,
+    linestyle="--",
+    linewidth=1
+)
+
+plt.xlabel(
+    "Ângulo de ataque α (graus)"
+)
+
+plt.ylabel(
+    "Cobertura (%)"
+)
+
+plt.title(
+    "Cobertura dos resultados do XFOIL por ângulo de ataque"
+)
+
+plt.xticks(
+    ALPHAS_ESPERADOS
+)
+
+plt.ylim(
+    0,
+    105
+)
+
+plt.grid(
+    axis="y",
+    alpha=0.3
+)
+
+plt.tight_layout()
+
+plt.savefig(
+    PASTA_SAIDA
+    / "cobertura_por_alpha.png",
+    dpi=300
+)
+
+plt.show()
+
+
+# ============================================================
+# 20. GRÁFICO - CASOS AUSENTES POR ALPHA
+# ============================================================
+
+plt.figure(
+    figsize=(10, 6)
+)
+
+plt.bar(
+    por_alpha["alpha"],
+    por_alpha["ausente"]
+)
+
+plt.xlabel(
+    "Ângulo de ataque α (graus)"
+)
+
+plt.ylabel(
+    "Número de casos ausentes"
+)
+
+plt.title(
+    "Resultados ausentes do XFOIL por ângulo de ataque"
+)
+
+plt.xticks(
+    ALPHAS_ESPERADOS
+)
+
+plt.grid(
+    axis="y",
+    alpha=0.3
+)
+
+plt.tight_layout()
+
+plt.savefig(
+    PASTA_SAIDA
+    / "casos_ausentes_por_alpha.png",
+    dpi=300
+)
+
+plt.show()
+
+
+# ============================================================
+# 21. GRÁFICO - COBERTURA POR REYNOLDS
+# ============================================================
+
+plt.figure(
+    figsize=(8, 6)
+)
+
+plt.bar(
+    por_re["Re"].astype(str),
+    por_re["cobertura_pct"]
+)
+
+plt.xlabel(
+    "Número de Reynolds"
+)
+
+plt.ylabel(
+    "Cobertura (%)"
+)
+
+plt.title(
+    "Cobertura dos resultados do XFOIL por Reynolds"
+)
+
+plt.ylim(
+    0,
+    105
+)
+
+plt.grid(
+    axis="y",
+    alpha=0.3
+)
+
+plt.tight_layout()
+
+plt.savefig(
+    PASTA_SAIDA
+    / "cobertura_por_reynolds.png",
+    dpi=300
+)
+
+plt.show()
+
+
+# ============================================================
+# 22. HEATMAP PERFIL x REYNOLDS
+# ============================================================
+
+matriz = perfil_re.pivot(
+    index="perfil",
+    columns="Re",
+    values="cobertura_pct"
+)
+
+plt.figure(
+    figsize=(10, 30)
+)
+
+plt.imshow(
+    matriz,
+    aspect="auto"
+)
+
+plt.colorbar(
+    label="Cobertura (%)"
+)
+
+plt.xlabel(
+    "Reynolds"
+)
+
+plt.ylabel(
+    "Perfil"
+)
+
+plt.title(
+    "Cobertura de resultados por perfil e Reynolds"
+)
+
+plt.xticks(
+    range(len(matriz.columns)),
+    matriz.columns
+)
+
+plt.yticks(
+    range(len(matriz.index)),
+    matriz.index,
+    fontsize=5
+)
+
+plt.tight_layout()
+
+plt.savefig(
+    PASTA_SAIDA
+    / "heatmap_convergencia_perfil_re.png",
+    dpi=300
+)
+
+plt.show()
+
+
+# ============================================================
+# 23. RESUMO FINAL
+# ============================================================
+
+resumo = pd.DataFrame(
+    {
+        "metrica": [
+            "numero_perfis",
+            "numero_reynolds",
+            "numero_mach",
+            "numero_alphas_esperados",
+            "casos_teoricos",
+            "casos_existentes",
+            "casos_ausentes",
+            "taxa_cobertura_pct",
+            "taxa_ausencia_pct",
+            "combinacoes_perfil_re_completas",
+            "combinacoes_perfil_re_incompletas",
+            "duplicatas",
+            "cd_menor_igual_zero",
+            "valores_infinitos"
+        ],
+        "valor": [
+            n_perfis,
+            n_re,
+            n_mach,
+            n_alpha,
+            total_teorico,
+            total_existente,
+            total_ausente,
+            taxa_cobertura,
+            taxa_ausencia,
+            len(completas),
+            len(incompletas),
+            len(duplicadas),
+            len(cd_invalido),
+            quantidade_inf
+        ]
+    }
+)
+
+resumo.to_csv(
+    PASTA_SAIDA
+    / "resumo_qualidade_convergencia.csv",
+    index=False
+)
+
+
+print("\n" + "=" * 70)
+print("RESUMO FINAL")
+print("=" * 70)
+
+print(resumo.to_string(index=False))
+
+print(
+    f"\nArquivos de diagnóstico salvos em:\n"
+    f"{PASTA_SAIDA}"
+)
+
+print("\nAnálise concluída.")
