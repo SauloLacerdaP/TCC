@@ -7,3 +7,4 @@ joblib==1.4.2
 requests==2.32.3
 scipy==1.13.1
 subprocess32==3.5.4
+xgboost==1.7.6
