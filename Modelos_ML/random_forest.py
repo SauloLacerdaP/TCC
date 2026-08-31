@@ -104,6 +104,20 @@ y_test = pd.read_csv(
 )
 
 
+# Carregar dados completos com informações de perfil, alpha e Re
+train_completo = pd.read_csv(
+    PASTA_DADOS / "train.csv"
+)
+
+valid_completo = pd.read_csv(
+    PASTA_DADOS / "validation.csv"
+)
+
+test_completo = pd.read_csv(
+    PASTA_DADOS / "test.csv"
+)
+
+
 print("\nDados carregados com sucesso.")
 
 print(
@@ -502,26 +516,32 @@ for target in TARGETS:
     # 7. SALVAR PREDIÇÕES
     # ========================================================
 
-    for conjunto, y_real, y_pred in [
+    for conjunto, y_real, y_pred, dados_completos in [
         (
             "treino",
             y_train_target,
-            pred_train
+            pred_train,
+            train_completo
         ),
         (
             "validacao",
             y_valid_target,
-            pred_valid
+            pred_valid,
+            valid_completo
         ),
         (
             "teste",
             y_test_target,
-            pred_test
+            pred_test,
+            test_completo
         )
     ]:
 
         df_pred = pd.DataFrame(
             {
+                "perfil": dados_completos["perfil"].values,
+                "alpha": dados_completos["alpha"].values,
+                "Re": dados_completos["Re"].values,
                 "real": y_real.values,
                 "previsto": y_pred,
                 "erro": (
