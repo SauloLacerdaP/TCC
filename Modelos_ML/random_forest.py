@@ -1,5 +1,7 @@
 import pandas as pd
 import numpy as np
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 from pathlib import Path
@@ -9,6 +11,7 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score
 )
+from sklearn.model_selection import RandomizedSearchCV
 
 import joblib
 
@@ -54,6 +57,15 @@ PARAMETROS_RF = {
     "bootstrap": True,
     "n_jobs": -1,
     "random_state": RANDOM_STATE
+}
+
+PARAMETROS_RF_GRID = {
+    "n_estimators": [200, 400, 600],
+    "max_depth": [None, 10, 20],
+    "min_samples_split": [2, 5],
+    "min_samples_leaf": [1, 2],
+    "max_features": ["sqrt", 1.0],
+    "bootstrap": [True, False]
 }
 
 
@@ -223,10 +235,48 @@ def plot_real_vs_pred(
 
 
 # ============================================================
-# 5. TREINAMENTO
+# 5. OTIMIZAÇÃO DOS HIPERPARÂMETROS
+# ============================================================
+
+
+def otimizar_hyperparametros(
+    X_train,
+    y_train_target,
+    X_valid,
+    y_valid_target
+):
+    """Busca automatizada de hiperparâmetros com validação cruzada."""
+
+    modelo_base = RandomForestRegressor(
+        random_state=RANDOM_STATE,
+        n_jobs=-1
+    )
+
+    busca = RandomizedSearchCV(
+        estimator=modelo_base,
+        param_distributions=PARAMETROS_RF_GRID,
+        n_iter=8,
+        scoring="neg_root_mean_squared_error",
+        cv=2,
+        n_jobs=-1,
+        random_state=RANDOM_STATE,
+        verbose=0
+    )
+
+    busca.fit(
+        X_train,
+        y_train_target
+    )
+
+    return busca.best_params_
+
+
+# ============================================================
+# 6. TREINAMENTO
 # ============================================================
 
 resultados_metricas = []
+resultados_parametros = []
 
 
 for target in TARGETS:
@@ -258,11 +308,42 @@ for target in TARGETS:
 
 
     # --------------------------------------------------------
+    # Otimização dos parâmetros
+    # --------------------------------------------------------
+
+    parametros_otimizados = otimizar_hyperparametros(
+        X_train,
+        y_train_target,
+        X_valid,
+        y_valid_target
+    )
+
+    parametros_modelo = {
+        **PARAMETROS_RF,
+        **parametros_otimizados
+    }
+
+    print(
+        f"Melhores parâmetros para {target}:"
+    )
+    print(parametros_modelo)
+
+    for nome_parametro, valor in parametros_modelo.items():
+        resultados_parametros.append(
+            {
+                "target": target,
+                "parametro": nome_parametro,
+                "valor": valor
+            }
+        )
+
+
+    # --------------------------------------------------------
     # Criar modelo
     # --------------------------------------------------------
 
     modelo = RandomForestRegressor(
-        **PARAMETROS_RF
+        **parametros_modelo
     )
 
 
@@ -596,10 +677,9 @@ df_metricas.to_csv(
 # ============================================================
 
 df_parametros = pd.DataFrame(
-    list(
-        PARAMETROS_RF.items()
-    ),
+    resultados_parametros,
     columns=[
+        "target",
         "parametro",
         "valor"
     ]

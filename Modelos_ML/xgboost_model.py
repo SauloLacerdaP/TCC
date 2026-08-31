@@ -10,6 +10,7 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score
 )
+from sklearn.model_selection import RandomizedSearchCV
 
 import joblib
 
@@ -47,17 +48,30 @@ RANDOM_STATE = 42
 # ============================================================
 
 PARAMETROS_XGB = {
-    "n_estimators": 500,
+    "n_estimators": 1000,
     "max_depth": 6,
     "learning_rate": 0.05,
     "subsample": 0.8,
     "colsample_bytree": 0.8,
     "min_child_weight": 1,
+    "gamma": 0.0,
     "reg_alpha": 0.0,
     "reg_lambda": 1.0,
     "objective": "reg:squarederror",
     "random_state": RANDOM_STATE,
     "n_jobs": -1
+}
+
+PARAMETROS_XGB_GRID = {
+    "n_estimators": [300, 500, 800, 1000, 1500],
+    "max_depth": [3, 4, 5, 6, 8, 10],
+    "learning_rate": [0.01, 0.03, 0.05, 0.1],
+    "subsample": [0.6, 0.8, 1.0],
+    "colsample_bytree": [0.6, 0.8, 1.0],
+    "min_child_weight": [1, 3, 5, 7],
+    "gamma": [0.0, 0.1, 0.5, 1.0],
+    "reg_alpha": [0.0, 0.01, 0.1, 1.0],
+    "reg_lambda": [0.5, 1.0, 2.0, 5.0]
 }
 
 
@@ -227,10 +241,57 @@ def plot_real_vs_pred(
 
 
 # ============================================================
-# 5. TREINAMENTO
+# 5. OTIMIZAÇÃO DOS HIPERPARÂMETROS
+# ============================================================
+
+
+def otimizar_hyperparametros(
+    X_train,
+    y_train_target,
+    X_valid,
+    y_valid_target
+):
+    """Busca automatizada de hiperparâmetros com validação cruzada e early stopping."""
+
+    modelo_base = XGBRegressor(
+        objective="reg:squarederror",
+        random_state=RANDOM_STATE,
+        n_jobs=-1,
+        eval_metric="rmse"
+    )
+
+    busca = RandomizedSearchCV(
+        estimator=modelo_base,
+        param_distributions=PARAMETROS_XGB_GRID,
+        n_iter=20,
+        scoring="neg_root_mean_squared_error",
+        cv=3,
+        n_jobs=-1,
+        random_state=RANDOM_STATE,
+        verbose=0
+    )
+
+    busca.fit(
+        X_train,
+        y_train_target,
+        eval_set=[
+            (
+                X_valid,
+                y_valid_target
+            )
+        ],
+        verbose=False
+    )
+
+    return busca.best_params_
+
+
+# ============================================================
+# 6. TREINAMENTO
 # ============================================================
 
 resultados_metricas = []
+resultados_parametros = []
 
 
 for target in TARGETS:
@@ -262,11 +323,42 @@ for target in TARGETS:
 
 
     # --------------------------------------------------------
+    # Otimização dos parâmetros
+    # --------------------------------------------------------
+
+    parametros_otimizados = otimizar_hyperparametros(
+        X_train,
+        y_train_target,
+        X_valid,
+        y_valid_target
+    )
+
+    parametros_modelo = {
+        **PARAMETROS_XGB,
+        **parametros_otimizados
+    }
+
+    print(
+        f"Melhores parâmetros para {target}:"
+    )
+    print(parametros_modelo)
+
+    for nome_parametro, valor in parametros_modelo.items():
+        resultados_parametros.append(
+            {
+                "target": target,
+                "parametro": nome_parametro,
+                "valor": valor
+            }
+        )
+
+
+    # --------------------------------------------------------
     # Modelo
     # --------------------------------------------------------
 
     modelo = XGBRegressor(
-        **PARAMETROS_XGB
+        **parametros_modelo
     )
 
 
@@ -601,10 +693,9 @@ df_metricas.to_csv(
 # ============================================================
 
 df_parametros = pd.DataFrame(
-    list(
-        PARAMETROS_XGB.items()
-    ),
+    resultados_parametros,
     columns=[
+        "target",
         "parametro",
         "valor"
     ]
