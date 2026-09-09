@@ -1,0 +1,14 @@
+LOAD aerofolio_validacao.dat
+
+PANE
+OPER
+VISC 250000
+MACH 0.100000
+ITER 300
+PACC
+polar_xfoil_0a12.txt
+
+ASEQ 0.000000 12.000000 0.250000
+PACC
+
+QUIT
