@@ -47,30 +47,18 @@ print("REGRESSÃO LINEAR - BASELINE")
 print("=" * 70)
 
 
-X_train = pd.read_csv(
-    PASTA_DADOS / "X_train_scaled.csv"
-)
+X_train = pd.read_csv(PASTA_DADOS / "X_train_scaled.csv")
 
-X_valid = pd.read_csv(
-    PASTA_DADOS / "X_validation_scaled.csv"
-)
+X_valid = pd.read_csv(PASTA_DADOS / "X_validation_scaled.csv")
 
-X_test = pd.read_csv(
-    PASTA_DADOS / "X_test_scaled.csv"
-)
+X_test = pd.read_csv(PASTA_DADOS / "X_test_scaled.csv")
 
 
-y_train = pd.read_csv(
-    PASTA_DADOS / "y_train.csv"
-)
+y_train = pd.read_csv(PASTA_DADOS / "y_train.csv")
 
-y_valid = pd.read_csv(
-    PASTA_DADOS / "y_validation.csv"
-)
+y_valid = pd.read_csv(PASTA_DADOS / "y_validation.csv")
 
-y_test = pd.read_csv(
-    PASTA_DADOS / "y_test.csv"
-)
+y_test = pd.read_csv(PASTA_DADOS / "y_test.csv")
 
 
 print("\nDados carregados com sucesso.")
