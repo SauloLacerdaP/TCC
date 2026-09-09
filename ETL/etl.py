@@ -32,11 +32,8 @@ COBERTURA_MINIMA = 0.60
 # ============================================================
 # EXTRAÇÃO
 # ============================================================
-
-print("Carregando banco de dados do XFOIL...")
 df_xfoil = pd.read_csv(ARQUIVO_XFOIL)
 
-print("Carregando banco de dados CST...")
 df_cst = pd.read_csv(ARQUIVO_CST)
 
 
@@ -359,18 +356,11 @@ print(
 # LIMPEZA DO DATASET FINAL
 # ============================================================
 
-# A coluna auxiliar não é mais necessária
-df_final = df_final.drop(
-    columns=["perfil_join"]
-)
-
+df_final = df_final.drop(columns=["perfil_join"])
 
 # Como airfoil_id e perfil representam
-# a mesma informação, removemos airfoil_id
-df_final = df_final.drop(
-    columns=["airfoil_id"],
-    errors="ignore"
-)
+# a mesma informação, remove airfoil_id
+df_final = df_final.drop(columns=["airfoil_id"],errors="ignore")
 
 
 # ============================================================

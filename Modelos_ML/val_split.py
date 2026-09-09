@@ -58,17 +58,11 @@ TARGETS = [
 # 1. CARREGAR SPLITS
 # ============================================================
 
-train = pd.read_csv(
-    PASTA_DADOS / "train.csv"
-)
+train = pd.read_csv(PASTA_DADOS / "train.csv")
 
-valid = pd.read_csv(
-    PASTA_DADOS / "validation.csv"
-)
+valid = pd.read_csv(PASTA_DADOS / "validation.csv")
 
-test = pd.read_csv(
-    PASTA_DADOS / "test.csv"
-)
+test = pd.read_csv(PASTA_DADOS / "test.csv")
 
 
 print("=" * 70)
@@ -331,15 +325,9 @@ def resumo_por_perfil(
     return resumo
 
 
-perfil_valid = resumo_por_perfil(
-    valid,
-    "validacao"
-)
+perfil_valid = resumo_por_perfil(valid,"validacao")
 
-perfil_test = resumo_por_perfil(
-    test,
-    "teste"
-)
+perfil_test = resumo_por_perfil(test,"teste")
 
 
 resumo_perfis = pd.concat(
@@ -383,7 +371,7 @@ resumo_perfis.to_csv(
 # ============================================================
 
 # Para avaliar geometria, retiramos Re e alpha,
-# porque queremos medir distância entre os perfis CST.
+# medir distância entre os perfis CST.
 
 FEATURES_GEOMETRIA = [
     "Au0",
@@ -443,64 +431,32 @@ geom_test = (
 # Padronização ajustada apenas no treino
 scaler_geom = StandardScaler()
 
-X_geom_train = scaler_geom.fit_transform(
-    geom_train[
-        FEATURES_GEOMETRIA
-    ]
-)
+X_geom_train = scaler_geom.fit_transform(geom_train[FEATURES_GEOMETRIA])
 
-X_geom_valid = scaler_geom.transform(
-    geom_valid[
-        FEATURES_GEOMETRIA
-    ]
-)
+X_geom_valid = scaler_geom.transform(geom_valid[FEATURES_GEOMETRIA])
 
-X_geom_test = scaler_geom.transform(
-    geom_test[
-        FEATURES_GEOMETRIA
-    ]
-)
+X_geom_test = scaler_geom.transform(geom_test[FEATURES_GEOMETRIA])
 
 
 # Vizinho mais próximo no treino
-nn = NearestNeighbors(
-    n_neighbors=1
-)
+nn = NearestNeighbors(n_neighbors=1)
 
-nn.fit(
-    X_geom_train
-)
+nn.fit(X_geom_train)
 
 
-dist_valid, idx_valid = nn.kneighbors(
-    X_geom_valid
-)
+dist_valid, idx_valid = nn.kneighbors(X_geom_valid)
 
-dist_test, idx_test = nn.kneighbors(
-    X_geom_test
-)
+dist_test, idx_test = nn.kneighbors(X_geom_test)
 
 
-geom_valid[
-    "distancia_treino_mais_proximo"
-] = dist_valid[:, 0]
+geom_valid["distancia_treino_mais_proximo"] = dist_valid[:, 0]
 
-geom_valid[
-    "perfil_treino_mais_proximo"
-] = geom_train.iloc[
-    idx_valid[:, 0]
-]["perfil"].values
+geom_valid["perfil_treino_mais_proximo"] = geom_train.iloc[idx_valid[:, 0]]["perfil"].values
 
 
-geom_test[
-    "distancia_treino_mais_proximo"
-] = dist_test[:, 0]
+geom_test["distancia_treino_mais_proximo"] = dist_test[:, 0]
 
-geom_test[
-    "perfil_treino_mais_proximo"
-] = geom_train.iloc[
-    idx_test[:, 0]
-]["perfil"].values
+geom_test["perfil_treino_mais_proximo"] = geom_train.iloc[idx_test[:, 0]]["perfil"].values
 
 
 print("\n" + "=" * 70)
@@ -508,26 +464,14 @@ print("DISTÂNCIA GEOMÉTRICA AO TREINO")
 print("=" * 70)
 
 
-print(
-    "\nValidação:"
-)
+print("\nValidação:")
 
-print(
-    geom_valid[
-        "distancia_treino_mais_proximo"
-    ].describe()
-)
+print(geom_valid["distancia_treino_mais_proximo"].describe())
 
 
-print(
-    "\nTeste:"
-)
+print("\nTeste:")
 
-print(
-    geom_test[
-        "distancia_treino_mais_proximo"
-    ].describe()
-)
+print(geom_test["distancia_treino_mais_proximo"].describe())
 
 
 geom_valid.sort_values(
@@ -554,39 +498,17 @@ geom_test.sort_values(
 # 7. GRÁFICO DAS DISTÂNCIAS
 # ============================================================
 
-plt.figure(
-    figsize=(8, 6)
-)
+plt.figure(figsize=(8, 6))
 
-plt.hist(
-    geom_valid[
-        "distancia_treino_mais_proximo"
-    ],
-    bins=15,
-    alpha=0.6,
-    label="Validação"
-)
+plt.hist(geom_valid["distancia_treino_mais_proximo"],bins=15,alpha=0.6,label="Validação")
 
-plt.hist(
-    geom_test[
-        "distancia_treino_mais_proximo"
-    ],
-    bins=15,
-    alpha=0.6,
-    label="Teste"
-)
+plt.hist(geom_test["distancia_treino_mais_proximo"],bins=15,alpha=0.6,label="Teste")
 
-plt.xlabel(
-    "Distância padronizada ao perfil de treino mais próximo"
-)
+plt.xlabel("Distância padronizada ao perfil de treino mais próximo")
 
-plt.ylabel(
-    "Número de perfis"
-)
+plt.ylabel("Número de perfis")
 
-plt.title(
-    "Distância geométrica ao conjunto de treino"
-)
+plt.title("Distância geométrica ao conjunto de treino")
 
 plt.legend()
 
@@ -611,16 +533,9 @@ plt.close()
 
 for target in TARGETS:
 
-    plt.figure(
-        figsize=(8, 6)
-    )
+    plt.figure(figsize=(8, 6))
 
-    plt.hist(
-        train[target],
-        bins=30,
-        alpha=0.5,
-        label="Treino"
-    )
+    plt.hist(train[target],bins=30,alpha=0.5,label="Treino")
 
     plt.hist(
         valid[target],
@@ -629,30 +544,17 @@ for target in TARGETS:
         label="Validação"
     )
 
-    plt.hist(
-        test[target],
-        bins=30,
-        alpha=0.5,
-        label="Teste"
-    )
+    plt.hist(test[target],bins=30,alpha=0.5,label="Teste")
 
-    plt.xlabel(
-        target
-    )
+    plt.xlabel(target)
 
-    plt.ylabel(
-        "Frequência"
-    )
+    plt.ylabel("Frequência")
 
-    plt.title(
-        f"Distribuição de {target}"
-    )
+    plt.title(f"Distribuição de {target}")
 
     plt.legend()
 
-    plt.grid(
-        alpha=0.3
-    )
+    plt.grid(alpha=0.3)
 
     plt.tight_layout()
 
