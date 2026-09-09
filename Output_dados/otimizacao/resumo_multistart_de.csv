@@ -1,0 +1,4 @@
+run,seed,scipy_success,message,geometry_valid,distance_to_train,distance_limit,distance_soft_penalty,alpha_pred_opt,CL_CD_pred_opt,optimization_score,objective_calls,valid_calls
+1,10,True,Optimization terminated successfully.,True,1.6545734877017582,2.363985711433732,0.0,4.0,135.91660199799173,135.91660199799173,70855,62908
+2,30,False,Maximum number of iterations has been exceeded.,True,1.6800380891784286,2.363985711433732,0.019011489973592772,4.0,136.011082673506,135.9920711835324,85030,78392
+3,50,False,Maximum number of iterations has been exceeded.,True,1.659705466946873,2.363985711433732,0.0007205912233010409,4.0,133.74543797867832,133.744717387455,85165,77538

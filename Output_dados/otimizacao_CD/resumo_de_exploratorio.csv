@@ -1,0 +1,2 @@
+seed,scipy_success,message,geometry_valid,distance_to_train,distance_limit_base,distance_limit_expanded,alpha_pred_opt,CL_pred_obj,CD_pred,CM_pred,objective_calls,valid_calls,candidate_pool_size
+42,False,Maximum number of iterations has been exceeded.,True,1.6772634338599848,2.363985711433732,4.255174280580718,6.0,0.930425763130188,0.011428391560912132,-0.024025803431868553,28295,16331,2000

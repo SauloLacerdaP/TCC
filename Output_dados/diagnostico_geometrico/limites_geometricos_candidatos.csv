@@ -1,0 +1,6 @@
+﻿criterio,valor,interpretacao
+camber_abs_max_pct_P95,6.614723492494049,95% dos perfis da base possuem camber absoluto máximo <= este valor
+camber_abs_max_pct_P99,8.773743404296702,99% dos perfis da base possuem camber absoluto máximo <= este valor
+camber_abs_max_pct_MAX_BASE,10.217498420560386,Maior camber absoluto máximo observado em qualquer perfil real da base
+t_max_pct_P01,4.144358469988984,Percentil 1 da espessura máxima
+t_max_pct_P99,21.028436375345613,Percentil 99 da espessura máxima
