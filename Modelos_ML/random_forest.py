@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import time
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -11,22 +12,27 @@ from sklearn.metrics import (
     mean_squared_error,
     r2_score
 )
-from sklearn.model_selection import RandomizedSearchCV
+from sklearn.model_selection import ParameterGrid
 
 import joblib
+
+
+inicio_execucao = time.perf_counter()
 
 
 # ============================================================
 # CONFIGURAÇÕES
 # ============================================================
 
-PASTA_DADOS = Path(
-    r"C:\Repositorios\TCC\Output_dados\ml_preparado"
-)
+BASE_DIR = Path(__file__).resolve().parents[1]
+PASTA_DADOS = BASE_DIR / "Output_dados" / "ml_preparado"
+PASTA_SAIDA = BASE_DIR / "Output_dados" / "resultados_random_forest"
 
-PASTA_SAIDA = Path(
-    r"C:\Repositorios\TCC\Output_dados\resultados_random_forest"
-)
+if not PASTA_DADOS.exists():
+    raise FileNotFoundError(
+        f"Diretório de dados não encontrado: {PASTA_DADOS}. "
+        "Verifique a estrutura do projeto."
+    )
 
 PASTA_SAIDA.mkdir(
     parents=True,
@@ -259,30 +265,37 @@ def otimizar_hyperparametros(
     X_valid,
     y_valid_target
 ):
-    """Busca automatizada de hiperparâmetros com validação cruzada."""
+    """Busca automática de hiperparâmetros usando a base de validação."""
 
-    modelo_base = RandomForestRegressor(
-        random_state=RANDOM_STATE,
-        n_jobs=-1
-    )
+    melhor_parametro = None
+    menor_mse = np.inf
 
-    busca = RandomizedSearchCV(
-        estimator=modelo_base,
-        param_distributions=PARAMETROS_RF_GRID,
-        n_iter=8,
-        scoring="neg_root_mean_squared_error",
-        cv=2,
-        n_jobs=-1,
-        random_state=RANDOM_STATE,
-        verbose=0
-    )
+    for parametros in ParameterGrid(PARAMETROS_RF_GRID):
+        modelo = RandomForestRegressor(
+            random_state=RANDOM_STATE,
+            n_jobs=-1,
+            **parametros
+        )
 
-    busca.fit(
-        X_train,
-        y_train_target
-    )
+        modelo.fit(
+            X_train,
+            y_train_target
+        )
 
-    return busca.best_params_
+        pred_valid = modelo.predict(X_valid)
+        mse_valid = mean_squared_error(
+            y_valid_target,
+            pred_valid
+        )
+
+        if mse_valid < menor_mse:
+            menor_mse = mse_valid
+            melhor_parametro = parametros
+
+    if melhor_parametro is None:
+        raise ValueError("Não foi possível otimizar os hiperparâmetros.")
+
+    return melhor_parametro
 
 
 # ============================================================
@@ -294,6 +307,8 @@ resultados_parametros = []
 
 
 for target in TARGETS:
+
+    inicio_target = time.perf_counter()
 
     print("\n" + "=" * 70)
 
@@ -492,7 +507,10 @@ for target in TARGETS:
                 "conjunto": conjunto,
                 "R2": metricas["R2"],
                 "RMSE": metricas["RMSE"],
-                "MSE": metricas["MSE"]
+                "MSE": metricas["MSE"],
+                "tempo_execucao_segundos": (
+                    time.perf_counter() - inicio_target
+                )
             }
         )
 
@@ -680,9 +698,13 @@ df_metricas = df_metricas[
         "conjunto",
         "R2",
         "RMSE",
-        "MSE"
+        "MSE",
+        "tempo_execucao_segundos"
     ]
 ]
+
+tempo_total_execucao_segundos = time.perf_counter() - inicio_execucao
+df_metricas["tempo_total_execucao_segundos"] = tempo_total_execucao_segundos
 
 
 df_metricas.to_csv(
@@ -729,6 +751,11 @@ print(
         index=False,
         float_format=lambda x: f"{x:.6f}"
     )
+)
+
+print(
+    f"\nTempo total de execução: "
+    f"{tempo_total_execucao_segundos:.6f} s"
 )
 
 
