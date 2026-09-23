@@ -1,2 +1,2 @@
-seed,scipy_success,message,geometry_valid,distance_to_train,distance_limit_base,distance_limit_expanded,alpha_pred_opt,CL_pred_obj,CD_pred,CM_pred,objective_calls,valid_calls,candidate_pool_size
-42,False,Maximum number of iterations has been exceeded.,True,3.9759539143224565,2.363985711433732,4.255174280580718,6.0,1.7684571743011475,0.0196236465126276,-0.22249849140644073,28295,7435,2000
+seed,scipy_success,message,geometry_valid,distance_to_train,distance_limit_base,distance_limit_expanded,alpha_pred_opt,CL_pred_obj,CD_pred,CM_pred,objective_calls,valid_calls,candidate_pool_size,tempo_ate_resultado_de_segundos
+42,False,Maximum number of iterations has been exceeded.,True,3.9759539143224565,2.363985711433732,4.255174280580718,6.0,1.7684571743011475,0.0196236465126276,-0.22249849140644073,28295,7435,2000,172.94780679999985
