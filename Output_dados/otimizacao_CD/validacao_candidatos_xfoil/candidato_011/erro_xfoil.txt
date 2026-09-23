@@ -1,1 +1,1 @@
-XFOIL retornou código 1.
+Timeout após 60 s.

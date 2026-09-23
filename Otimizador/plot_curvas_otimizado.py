@@ -8,9 +8,11 @@ Gera gráficos dos aerofólios otimizados usando polares XFOIL já existentes:
 
 2) geometria do perfil otimizado para CD;
 
-3) curva CL x alpha do perfil otimizado para CL;
+3) geometria do perfil otimizado para CL/CD;
 
-4) curva CD x alpha do perfil otimizado para CD.
+4) curva CL x alpha do perfil otimizado para CL;
+
+5) curva CD x alpha do perfil otimizado para CD.
 
 Nos gráficos aerodinâmicos, o ponto em alpha = 6 graus é destacado
 
@@ -94,6 +96,18 @@ DAT_CD = (
 
 )
 
+DAT_CL_CD = (
+
+    ROOT
+
+    / "Output_dados"
+
+    / "otimizacao_CL_CD"
+
+    / "aerofolio_otimizado.dat"
+
+)
+
 OUTPUT_DIR = ROOT / "Output_dados" / "plots_otimizados"
 
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -101,6 +115,14 @@ OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 # Polares XFOIL já calculadas pelos otimizadores.
 POLAR_CL = OUTPUT_DIR / "xfoil_otimizado_CL" / "polar.txt"
 POLAR_CD = OUTPUT_DIR / "xfoil_otimizado_CD" / "polar.txt"
+POLAR_CL_CD = (
+    ROOT
+    / "Output_dados"
+    / "otimizacao_CL_CD"
+    / "validacao_candidatos_xfoil"
+    / "candidato_005"
+    / "polar.txt"
+)
 
 REYNOLDS = 250_000.0
 
@@ -708,6 +730,8 @@ def plotar_cl_alpha(
 
     output_path: Path,
 
+    titulo: str,
+
     previsao_xgb: pd.DataFrame | None = None,
 
 ):
@@ -776,7 +800,7 @@ def plotar_cl_alpha(
 
     ax.set_title(
 
-        r"Perfil otimizado em $C_L$ — curva $C_L$ × $\alpha$" "\n"
+        f"{titulo}" "\n"
 
         f"Re={REYNOLDS:.0f}, Mach={MACH:.1f}"
 
@@ -805,6 +829,8 @@ def plotar_cd_alpha(
     df: pd.DataFrame,
 
     output_path: Path,
+
+    titulo: str,
 
     previsao_xgb: pd.DataFrame | None = None,
 
@@ -874,7 +900,7 @@ def plotar_cd_alpha(
 
     ax.set_title(
 
-        r"Perfil otimizado em $C_D$ — curva $C_D$ × $\alpha$" "\n"
+        f"{titulo}" "\n"
 
         f"Re={REYNOLDS:.0f}, Mach={MACH:.1f}"
 
@@ -916,6 +942,8 @@ def main():
 
     print(f"Perfil CD: {DAT_CD}")
 
+    print(f"Perfil CL/CD: {DAT_CL_CD}")
+
     print(f"Saída: {OUTPUT_DIR}")
 
     # --------------------------------------------------------------
@@ -944,6 +972,16 @@ def main():
 
     )
 
+    plotar_geometria(
+
+        DAT_CL_CD,
+
+        "Perfil otimizado — CL/CD (Re=250k, alpha=6°)",
+
+        OUTPUT_DIR / "perfil_otimizado_CL_CD.png",
+
+    )
+
     # --------------------------------------------------------------
 
     # --------------------------------------------------------------
@@ -953,9 +991,11 @@ def main():
     print("\nLendo polares XFOIL já existentes:")
     print(f"Polar CL: {POLAR_CL}")
     print(f"Polar CD: {POLAR_CD}")
+    print(f"Polar CL/CD: {POLAR_CL_CD}")
 
     polar_cl = ler_polar_xfoil(POLAR_CL)
     polar_cd = ler_polar_xfoil(POLAR_CD)
+    polar_cl_cd = ler_polar_xfoil(POLAR_CL_CD)
 
     # Mantém os CSVs consolidados na pasta de plots.
     polar_cl.to_csv(
@@ -964,6 +1004,10 @@ def main():
     )
     polar_cd.to_csv(
         OUTPUT_DIR / "polar_xfoil_otimizado_CD.csv",
+        index=False,
+    )
+    polar_cl_cd.to_csv(
+        OUTPUT_DIR / "polar_xfoil_otimizado_CL_CD.csv",
         index=False,
     )
 
@@ -991,6 +1035,26 @@ def main():
 
     )
 
+    previsao_cl_cl_cd = gerar_previsao_xgboost(
+
+        MODEL_CL,
+
+        ROOT / "Output_dados" / "otimizacao_CL_CD" / "resultado_otimizacao.json",
+
+        target="CL",
+
+    )
+
+    previsao_cd_cl_cd = gerar_previsao_xgboost(
+
+        MODEL_CD,
+
+        ROOT / "Output_dados" / "otimizacao_CL_CD" / "resultado_otimizacao.json",
+
+        target="CD",
+
+    )
+
     # --------------------------------------------------------------
 
     # 4) Novos plots
@@ -1003,23 +1067,73 @@ def main():
 
         OUTPUT_DIR / "curva_CL_alpha_otimizado_CL.png",
 
+        r"Perfil otimizado em $C_L$ — curva $C_L$ × $\alpha$",
+
         previsao_xgb=previsao_cl,
+
+    )
+
+    plotar_cl_alpha(
+
+        polar_cd[polar_cd["alpha"] <= 7.5].copy(),
+
+        OUTPUT_DIR / "curva_CL_alpha_otimizado_CD.png",
+
+        r"Perfil otimizado em $C_L$ para CD — curva $C_L$ × $\alpha$",
+
+        previsao_xgb=previsao_cl[previsao_cl["alpha"] <= 7.5].copy(),
 
     )
 
     ponto_cd = plotar_cd_alpha(
 
-        polar_cd,
+        polar_cd[polar_cd["alpha"] <= 7.5].copy(),
 
         OUTPUT_DIR / "curva_CD_alpha_otimizado_CD.png",
+
+        r"Perfil otimizado em $C_D$ — curva $C_D$ × $\alpha$",
+
+        previsao_xgb=previsao_cd[previsao_cd["alpha"] <= 7.5].copy(),
+
+    )
+
+    plotar_cd_alpha(
+
+        polar_cl,
+
+        OUTPUT_DIR / "curva_CD_alpha_otimizado_CL.png",
+
+        r"Perfil otimizado em $C_D$ para CL — curva $C_D$ × $\alpha$",
 
         previsao_xgb=previsao_cd,
 
     )
 
-    # --------------------------------------------------------------
+    ponto_cl_cd = obter_ponto_alpha(polar_cl_cd, ALPHA_DESTAQUE)
 
-    # 4) Resumo alpha = 6°
+    plotar_cl_alpha(
+
+        polar_cl_cd[polar_cl_cd["alpha"] <= 9.0].copy(),
+
+        OUTPUT_DIR / "curva_CL_alpha_otimizado_CL_CD.png",
+
+        r"Perfil otimizado em $C_L$ para CL/CD — curva $C_L$ × $\alpha$",
+
+        previsao_xgb=previsao_cl_cl_cd[previsao_cl_cl_cd["alpha"] <= 9.0].copy(),
+
+    )
+
+    plotar_cd_alpha(
+
+        polar_cl_cd[polar_cl_cd["alpha"] <= 9.0].copy(),
+
+        OUTPUT_DIR / "curva_CD_alpha_otimizado_CL_CD.png",
+
+        r"Perfil otimizado em $C_D$ para CL/CD — curva $C_D$ × $\alpha$",
+
+        previsao_xgb=previsao_cd_cl_cd[previsao_cd_cl_cd["alpha"] <= 9.0].copy(),
+
+    )
 
     # --------------------------------------------------------------
 
@@ -1115,13 +1229,25 @@ def main():
 
     print(" - perfil_otimizado_CD.png")
 
+    print(" - perfil_otimizado_CL_CD.png")
+
     print(" - curva_CL_alpha_otimizado_CL.png")
 
+    print(" - curva_CL_alpha_otimizado_CD.png")
+
     print(" - curva_CD_alpha_otimizado_CD.png")
+
+    print(" - curva_CD_alpha_otimizado_CL.png")
+
+    print(" - curva_CL_alpha_otimizado_CL_CD.png")
+
+    print(" - curva_CD_alpha_otimizado_CL_CD.png")
 
     print(" - polar_xfoil_otimizado_CL.csv")
 
     print(" - polar_xfoil_otimizado_CD.csv")
+
+    print(" - polar_xfoil_otimizado_CL_CD.csv")
 
     print(" - resumo_alpha6_otimizados.csv")
 

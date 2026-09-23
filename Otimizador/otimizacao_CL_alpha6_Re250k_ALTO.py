@@ -72,6 +72,8 @@ import json
 
 import math
 
+import time
+
 import subprocess
 
 import shutil
@@ -2800,6 +2802,8 @@ def salvar_dat(path: Path, au: np.ndarray, al: np.ndarray):
 
 def main():
 
+    inicio_execucao = time.perf_counter()
+
     print("=" * 88)
 
     print("OTIMIZAÇÃO HÍBRIDA CL | ALPHA=6° | RE=250K | DE FOCADO EM ALTO CL V2 + XFOIL")
@@ -3040,6 +3044,9 @@ def main():
         "candidate_pool_size": int(
             len(problema.seed_candidate_pools.get(int(SEED), []))
         ),
+        "tempo_ate_resultado_de_segundos": (
+            time.perf_counter() - inicio_execucao
+        ),
     }])
 
     resumo_de.to_csv(
@@ -3195,8 +3202,11 @@ def main():
 
         print(f"Al{i} = {v:.10f}")
 
+    tempo_total_execucao_segundos = time.perf_counter() - inicio_execucao
+
     result_dict = {
         "objective": "CL",
+        "tempo_execucao_total_segundos": tempo_total_execucao_segundos,
 
         **{f"Au{i}": float(au[i]) for i in range(7)},
 
@@ -3297,6 +3307,10 @@ def main():
     print("\nArquivos salvos em:")
 
     print(OUTPUT_DIR)
+    print(
+        f"Tempo total de execução: "
+        f"{tempo_total_execucao_segundos:.6f} s"
+    )
 
     print(" - resultado_otimizacao.csv")
 

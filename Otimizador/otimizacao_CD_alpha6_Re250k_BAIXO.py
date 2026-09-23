@@ -74,6 +74,8 @@ import math
 
 import subprocess
 
+import time
+
 import shutil
 
 import warnings
@@ -2894,6 +2896,8 @@ def comparar_otimizado_cd_com_banco(best_row, ranking_banco):
 
 def main():
 
+    start_time = time.perf_counter()
+
     print("=" * 88)
 
     print("OTIMIZAÇÃO HÍBRIDA CD | ALPHA=6° | RE=250K | DE FOCADO EM BAIXO CD V2 + XFOIL")
@@ -3439,6 +3443,11 @@ def main():
         "CD em alpha=6° no XFOIL entre os candidatos Top-N do surrogate."
 
     )
+
+    elapsed = time.perf_counter() - start_time
+    print("\n" + "=" * 88)
+    print(f"TEMPO TOTAL DE EXECUÇÃO: {elapsed:.2f} segundos")
+    print("=" * 88)
 
 
 

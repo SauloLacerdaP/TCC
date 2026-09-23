@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import time
 import matplotlib.pyplot as plt
 
 from pathlib import Path
@@ -11,6 +12,9 @@ from sklearn.metrics import (
 )
 
 import joblib
+
+
+inicio_execucao = time.perf_counter()
 
 
 # ============================================================
@@ -205,6 +209,8 @@ predicoes_salvas = {}
 
 for target in TARGETS:
 
+    inicio_target = time.perf_counter()
+
     print("\n" + "=" * 70)
 
     print(
@@ -369,7 +375,10 @@ for target in TARGETS:
                 "conjunto": conjunto,
                 "R2": metricas["R2"],
                 "RMSE": metricas["RMSE"],
-                "MSE": metricas["MSE"]
+                "MSE": metricas["MSE"],
+                "tempo_execucao_segundos": (
+                    time.perf_counter() - inicio_target
+                )
             }
         )
 
@@ -454,9 +463,13 @@ df_metricas = df_metricas[
         "conjunto",
         "R2",
         "RMSE",
-        "MSE"
+        "MSE",
+        "tempo_execucao_segundos"
     ]
 ]
+
+tempo_total_execucao_segundos = time.perf_counter() - inicio_execucao
+df_metricas["tempo_total_execucao_segundos"] = tempo_total_execucao_segundos
 
 
 df_metricas.to_csv(
@@ -598,6 +611,11 @@ print(
         index=False,
         float_format=lambda x: f"{x:.6f}"
     )
+)
+
+print(
+    f"\nTempo total de execução: "
+    f"{tempo_total_execucao_segundos:.6f} s"
 )
 
 
