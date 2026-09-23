@@ -3,6 +3,30 @@ import matplotlib.pyplot as plt
 from pathlib import Path
 
 
+BASE_DIR = Path(__file__).resolve().parent
+
+
+def resolver_arquivo(nome_arquivo, *pastas):
+    candidatos = []
+
+    for pasta in pastas:
+        candidatos.append(BASE_DIR / pasta / nome_arquivo)
+
+    candidatos.extend([
+        BASE_DIR / nome_arquivo,
+        *sorted(BASE_DIR.glob(f"**/{nome_arquivo}")),
+    ])
+
+    for caminho in candidatos:
+        if caminho.exists():
+            return caminho
+
+    raise FileNotFoundError(
+        f"Arquivo '{nome_arquivo}' não encontrado. "
+        f"Pastas testadas: {[str(c) for c in candidatos[:4]]}"
+    )
+
+
 def ler_dat(arquivo):
     arquivo = Path(arquivo)
 
@@ -131,12 +155,14 @@ def mostrar_info(nome, bruto, normalizado, chord):
 # CAMINHOS
 # ============================================================
 
-arquivo_original = Path(
-    r"C:\Ciencia de Dados\TCC\Airfoils\clarky.dat"
+arquivo_original = resolver_arquivo(
+    "ag03.dat",
+    "Airfoils",
 )
 
-arquivo_cst = Path(
-    r"C:\Ciencia de Dados\TCC\Airfoils\cst_reconstruidos\clarky_cst.dat"
+arquivo_cst = resolver_arquivo(
+    "ag03_cst.dat",
+    "cst/cst_output/cst_reconstruidos",
 )
 
 
@@ -171,14 +197,14 @@ cst, chord_cst = normalizar_para_comparacao(
 # ============================================================
 
 mostrar_info(
-    "NACA 23015 ORIGINAL",
+    "AG03 ORIGINAL",
     original_bruto,
     original,
     chord_original
 )
 
 mostrar_info(
-    "NACA 23015 CST",
+    "AG03 CST",
     cst_bruto,
     cst,
     chord_cst
@@ -219,7 +245,7 @@ ax.plot(
 # ============================================================
 
 ax.set_title(
-    "NACA 23015 — Original × CST"
+    "AG03 — Original × CST"
 )
 
 ax.set_xlabel("x/c")
